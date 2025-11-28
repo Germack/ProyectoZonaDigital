@@ -58,13 +58,24 @@ export default function GestionProductos() {
         calculateStats();
     }, [productos]);
 
+    //cambiando para solo mostrar las categorias que queremos
     const calculateStats = () => {
-        const total = productos.length;
-        const totalValue = productos.reduce((sum, product) => sum + (product.price * product.stock), 0);
-        const lowStock = productos.filter(product => product.stock < 10).length;
+    const allowedCategories = categories;
 
-        setStats({ total, totalValue, lowStock });
-    };
+    const filtered = productos.filter(
+        product => allowedCategories.includes(product.category)
+    );
+
+    const total = filtered.length;
+    const totalValue = filtered.reduce(
+        (sum, product) => sum + (product.price * product.stock), 
+        0
+    );
+    const lowStock = filtered.filter(product => product.stock < 10).length;
+
+    setStats({ total, totalValue, lowStock });
+};
+
 
     const verificarAutenticacion = () => {
         const token = localStorage.getItem("token");
