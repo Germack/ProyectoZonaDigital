@@ -19,7 +19,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
         <Route path="/newuser" element={<CuentaNueva />} />
         <Route path="/perfil" element={<PerfilUsuario />} />
-        <Route element={<ProtectedRoute RolUSer={["admin"]} />}>
+        <Route element={<ProtectedRoute RolUser={["admin"]} />}>
           <Route path="/homeAdmin" element={<HomeAdmin />} />
           <Route path="/users" element={<Users />} />
           <Route path="/editar-usuario/:id" element={<EditarUsuario />} />
