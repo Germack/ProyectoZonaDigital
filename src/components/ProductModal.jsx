@@ -1,16 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function ProductModal({ show, onClose, product, onSave, categories }) {
     const [formData, setFormData] = useState({
-        name: product?.name || "",
-        description: product?.description || "",
-        price: product?.price?.toString() || "",
-        stock: product?.stock?.toString() || "",
-        category: product?.category || "technology",
-        image_url: product?.image_url || ""
+        name: "",
+        description: "",
+        price: "",
+        stock: "",
+        category: "technology",
+        image_url: ""
     });
     const [uploadingImage, setUploadingImage] = useState(false);
     const [error, setError] = useState(null);
+
+    // Actualizar formData cuando el producto cambie
+    useEffect(() => {
+        if (product) {
+            setFormData({
+                name: product.name || "",
+                description: product.description || "",
+                price: product.price?.toString() || "",
+                stock: product.stock?.toString() || "",
+                category: product.category || "technology",
+                image_url: product.image_url || ""
+            });
+        } else {
+            // Resetear formData si no hay producto (modo crear)
+            setFormData({
+                name: "",
+                description: "",
+                price: "",
+                stock: "",
+                category: "technology",
+                image_url: ""
+            });
+        }
+    }, [product]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -18,10 +42,25 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
             setError(null);
             const token = localStorage.getItem("token");
 
+            // Validar que los campos numéricos sean válidos
+            const priceValue = parseFloat(formData.price);
+            const stockValue = parseInt(formData.stock);
+
+            if (isNaN(priceValue) || priceValue < 0) {
+                throw new Error("El precio debe ser un número válido mayor o igual a 0");
+            }
+
+            if (isNaN(stockValue) || stockValue < 0) {
+                throw new Error("El stock debe ser un número válido mayor o igual a 0");
+            }
+
             const productoData = {
-                ...formData,
-                price: parseFloat(formData.price),
-                stock: parseInt(formData.stock)
+                name: formData.name,
+                description: formData.description,
+                price: priceValue,
+                stock: stockValue,
+                category: formData.category,
+                image_url: formData.image_url
             };
 
             const url = product
@@ -41,7 +80,8 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
             });
 
             if (!respuesta.ok) {
-                throw new Error(`Error al ${product ? 'actualizar' : 'crear'} el producto`);
+                const errorData = await respuesta.json().catch(() => ({}));
+                throw new Error(errorData.detail || errorData.message || `Error al ${product ? 'actualizar' : 'crear'} el producto`);
             }
 
             onSave();
@@ -62,12 +102,14 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                 headers: {
                     "accept": "application/json",
                     "Authorization": `Bearer ${token}`,
+                    "Content-Type": "multipart/form-data",
                 },
                 body: formData
             });
 
             if (!respuesta.ok) {
-                throw new Error("Error al subir la imagen");
+                const errorData = await respuesta.json().catch(() => ({}));
+                throw new Error(errorData.detail || errorData.message || "Error al subir la imagen");
             }
 
             const data = await respuesta.json();
@@ -82,13 +124,45 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
     const handleImageChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
+            // Validar tipo de archivo
+            if (!file.type.startsWith('image/')) {
+                setError("Por favor, selecciona un archivo de imagen válido");
+                return;
+            }
+
+            // Validar tamaño (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                setError("La imagen no debe superar los 5MB");
+                return;
+            }
+
             try {
+                setError(null);
                 const imageUrl = await subirImagen(file);
                 setFormData(prev => ({ ...prev, image_url: imageUrl }));
             } catch (err) {
                 setError(err.message);
             }
         }
+    };
+
+    const getCategoryDisplayName = (category) => {
+        const categoryMap = {
+            'technology': '🖥️ Tecnología',
+            'audio': '🎧 Audio',
+            'celulares': '📱 Celulares',
+            'computadoras': '💻 Computadoras',
+            'videojuegos': '🎮 Videojuegos'
+        };
+        return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     if (!show) return null;
@@ -129,9 +203,10 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                             </label>
                             <input
                                 type="text"
+                                name="name"
                                 required
                                 value={formData.name}
-                                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                onChange={handleInputChange}
                                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white placeholder-slate-400 transition duration-200"
                                 placeholder="Ej: MacBook Pro M2"
                             />
@@ -142,9 +217,10 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                                 📄 Descripción *
                             </label>
                             <textarea
+                                name="description"
                                 required
                                 value={formData.description}
-                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                onChange={handleInputChange}
                                 rows="3"
                                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white placeholder-slate-400 transition duration-200 resize-none"
                                 placeholder="Describe las características del producto..."
@@ -158,11 +234,12 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                                 </label>
                                 <input
                                     type="number"
+                                    name="price"
                                     required
                                     min="0"
                                     step="0.01"
                                     value={formData.price}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                                    onChange={handleInputChange}
                                     className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white placeholder-slate-400 transition duration-200"
                                     placeholder="0.00"
                                 />
@@ -174,10 +251,11 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                                 </label>
                                 <input
                                     type="number"
+                                    name="stock"
                                     required
                                     min="0"
                                     value={formData.stock}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
+                                    onChange={handleInputChange}
                                     className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white placeholder-slate-400 transition duration-200"
                                     placeholder="0"
                                 />
@@ -189,14 +267,15 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                                 🗂️ Categoría *
                             </label>
                             <select
+                                name="category"
                                 required
                                 value={formData.category}
-                                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                onChange={handleInputChange}
                                 className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-white transition duration-200"
                             >
                                 {categories.map(category => (
                                     <option key={category} value={category} className="bg-slate-800">
-                                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                                        {getCategoryDisplayName(category)}
                                     </option>
                                 ))}
                             </select>
@@ -220,12 +299,19 @@ export default function ProductModal({ show, onClose, product, onSave, categorie
                                     </div>
                                 )}
                                 {formData.image_url && (
-                                    <div className="mt-2">
+                                    <div className="flex items-center space-x-4 mt-2">
                                         <img
                                             src={formData.image_url}
                                             alt="Vista previa"
                                             className="h-24 w-24 object-cover rounded-lg border-2 border-cyan-500/50 shadow-lg"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, image_url: "" }))}
+                                            className="text-sm text-red-400 hover:text-red-300 transition duration-200"
+                                        >
+                                            Eliminar imagen
+                                        </button>
                                     </div>
                                 )}
                             </div>
