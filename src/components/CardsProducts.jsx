@@ -11,9 +11,37 @@ export default function CardsProducts() {
 
     const productosPorPagina = 10;
 
+    const [categoryFilter, setCategoryFilter] = useState("all");
+    const categories = ["technology", "audio", "celulares", "computadoras", "laptops",  "videojuegos"]; // o las que tengas
+    const categoryIcons = {
+        all: "📦",
+        technology: "💻",
+        audio: "🎧",
+        celulares: "",
+        computadoras: "🖥️",
+        laptops: "💻",
+        videojuegos: "🎮"
+    };
+
+    const getCategoryDisplayName = (category) => {
+    const names = {
+        technology: "Tecnologia",
+        audio: "Audio",
+        celulares: "Celulares",
+        computadoras: "Computadoras",
+        laptops: "Laptops",
+        videojuegos: "Videojuegos"
+    };
+    return names[category] || category;
+    };
+
+
+
     useEffect(() => {
-        cargarProductos();
-    }, [paginaActual]);
+
+    cargarProductos();
+}, [paginaActual, categoryFilter]);
+
 
     const cargarProductos = async () => {
         try {
@@ -21,9 +49,11 @@ export default function CardsProducts() {
             setError(null);
 
             const skip = paginaActual * productosPorPagina;
+            const categoriaQuery = categoryFilter === "all" ? "" : `&category=${categoryFilter}`;
+
 
             const respuesta = await fetch(
-                `https://api-funval-g6.onrender.com/products/?skip=${skip}&limit=${productosPorPagina}&category=computadoras`,
+                `https://api-funval-g6.onrender.com/products/?skip=${skip}&limit=${productosPorPagina}${categoriaQuery}`,
                 {
                     method: "GET",
                     headers: {
@@ -31,6 +61,7 @@ export default function CardsProducts() {
                     },
                 }
             );
+
 
             if (!respuesta.ok) {
                 throw new Error(`Error ${respuesta.status}: No se pudieron cargar los productos`);
@@ -111,8 +142,69 @@ export default function CardsProducts() {
         );
     }
 
+    if (categoryFilter === "all") {
     return (
+        <div className="min-h-screen bg-gray-50 py-8 flex flex-col items-center justify-start">
+            
+            {/* Select visible */}
+            <div className="mb-6 w-full flex justify-center">
+                <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                        setCategoryFilter(e.target.value);
+                        setPaginaActual(0);
+                    }}
+                    className="px-6 py-4 bg-white text-black border border-slate-600 rounded-2xl
+                               focus:ring-2 focus:ring-gray-600 transition-all duration-300"
+                >
+                    <option value="all">📦 Selecciona una categoría</option>
+
+                    {categories.map(category => (
+                        <option key={category} value={category}>
+                            {categoryIcons[category]} {getCategoryDisplayName(category)}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Mensaje */}
+            <p className="text-gray-600 text-lg mt-10">
+                Por favor, elige una categoría para ver los productos.
+            </p>
+        </div>
+        );
+    }
+
+
+
+    return (
+        
         <div className="min-h-screen bg-gray-50 py-8">
+
+        {/* 🔹 SEARCH & FILTERS: solo el div del select que pediste */}
+        <div className="mb-6 flex gap-4 w-full lg:w-auto">
+            <select
+                value={categoryFilter}
+                onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    setPaginaActual(0);
+                }}
+                className="px-6 py-4 bg-white text-black border border-slate-600 rounded-2xl 
+                           focus:ring-2 focus:ring-gray-600 focus:border-gray-600
+                            transition-all duration-300"
+            >
+                <option value="all" className="bg-gray-200">
+                    {categoryIcons.all} Todas las categorías
+                </option>
+
+                {categories.map(category => (
+                    <option key={category} value={category} className="bg-gray-200">
+                        {categoryIcons[category]} {getCategoryDisplayName(category)}
+                    </option>
+                ))}
+            </select>
+        </div>
+
 
 
             {/* Información de paginación */}
